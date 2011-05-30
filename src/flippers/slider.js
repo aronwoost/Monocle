@@ -105,6 +105,12 @@ Monocle.Flippers.Slider = function (reader) {
     setPage(upperPage(), locus, fn);
   }
 
+  function moveToWithTransition(dirObj) {
+	var dir = dirObj.direction;
+	
+	lift(dir, dir == 1 ? 533 : 10);
+	release(dir, dir == 1 ? 533 : 10);
+  }
 
   function setPage(pageDiv, locus, callback) {
     ensureWaitControl();
@@ -577,6 +583,7 @@ Monocle.Flippers.Slider = function (reader) {
   API.addPage = addPage;
   API.getPlace = getPlace;
   API.moveTo = moveTo;
+  API.moveToWithTransition = moveToWithTransition;
   API.listenForInteraction = listenForInteraction;
 
   // OPTIONAL API - WILL BE INVOKED (WHERE RELEVANT) IF PROVIDED.
