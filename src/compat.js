@@ -230,9 +230,15 @@ Monocle.Browser.has.jumpFlickerBug =
 //
 // Thanks to madfarmer on Github for identifying a workaround.
 //
+/*
 Monocle.Browser.has.columnOverflowPaintBug = Monocle.Browser.is.WebKit &&
   !Monocle.Browser.is.MobileSafari &&
   navigator.userAgent.indexOf("AppleWebKit/534") > 0;
+*/
+Monocle.Browser.has.columnOverflowPaintBug = Monocle.Browser.is.WebKit &&
+!Monocle.Browser.is.MobileSafari &&
+navigator.userAgent.indexOf("AppleWebKit/534") > 0 &&
+navigator.userAgent.indexOf("AppleWebKit/534.5") === -1;
 
 
 // A little console stub if not initialized in a console-equipped browser.
