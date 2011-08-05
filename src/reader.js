@@ -96,9 +96,10 @@ Monocle.Reader = function (node, bookData, options, onLoadCallback) {
     createReaderElements();
 
     // Clamp page frames to a set of styles that reduce Monocle breakage.
-    var defRules = k.DEFAULT_STYLE_RULES;
-    if (options.stylesheet) { defRules += options.stylesheet; }
-    p.defaultStyles = addPageStyles(defRules, false);
+    p.defaultStyles = addPageStyles(k.DEFAULT_STYLE_RULES, false);
+    if (options.stylesheet) {
+      p.initialStyles = addPageStyles(options.stylesheet, false);
+    }
 
     primeFrames(options.primeURL, function () {
       // Make the reader elements look pretty.
@@ -307,7 +308,7 @@ Monocle.Reader = function (node, bookData, options, onLoadCallback) {
 
 
   // Moves the current page as specified by the locus. See
-  // Monocle.Book#changePage for documentation on the locus argument.
+  // Monocle.Book#pageNumberAt for documentation on the locus argument.
   //
   // The callback argument is optional.
   //
@@ -720,14 +721,8 @@ Monocle.Reader.DEFAULT_STYLE_RULES = [
   "}",
   "html#RS\\:monocle img, html#RS\\:monocle video, html#RS\\:monocle object {" +
     "max-height: 95% !important;" +
+    "height: auto !important;" +
   "}"
 ]
-
-if (Monocle.Browser.has.columnOverflowPaintBug) {
-  Monocle.Reader.DEFAULT_STYLE_RULES.push(
-    "::-webkit-scrollbar { width: 0; height: 0; }"
-  )
-}
-
 
 Monocle.pieceLoaded('reader');
