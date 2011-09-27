@@ -122,6 +122,8 @@ Monocle.Book = function (dataSource) {
       result.page = component.pageForChapter(locus.anchor, pageDiv);
     } else if (typeof(locus.xpath) == "string") {
       result.page = component.pageForXPath(locus.xpath, pageDiv);
+    } else if (typeof(locus.nodeObj) == "object") {
+      result.page = component.pageForClientRect(locus.nodeObj, pageDiv);
     } else if (typeof(locus.selector) == "string") {
       result.page = component.pageForSelector(locus.selector, pageDiv);
     } else if (typeof(locus.position) == "string") {
