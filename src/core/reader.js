@@ -378,6 +378,10 @@ Monocle.Reader = function (node, bookData, options, onLoadCallback) {
     p.flipper.moveTo(locus, fn);
   }
 
+function moveToWithTransition(dir) {
+    p.flipper.moveToWithTransition(dir);
+  }
+
 
   // Moves to the relevant element in the relevant component.
   //
@@ -740,6 +744,8 @@ Monocle.Reader = function (node, bookData, options, onLoadCallback) {
   API.updatePageStyles = updatePageStyles;
   API.removePageStyles = removePageStyles;
   API.visiblePages = visiblePages;
+
+API.moveToWithTransition = moveToWithTransition;
 
   initialize();
 
