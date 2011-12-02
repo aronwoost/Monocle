@@ -335,34 +335,38 @@ Monocle.Component = function (book, id, index, chapters, source) {
       return 1;
     }
     var doc = pageDiv.m.activeFrame.contentDocument;
-    node = nodeObj.getNode(nodeObj.node, doc);
-    if(!node){
-      return 1;
-    }
-    if(node.getBoundingClientRect) { // it's not a text node
-      var perc = pageDiv.m.dimensions.percentageThroughOfNode(node);
-      return percentToPageNumber(perc);
-    }
-    // has to be a textnode from here
-    var offsetIndex;
-    if(nodeObj.term) {
-      var re = new RegExp(nodeObj.term);
-      var reIndex = node.nodeValue.search(re);
-      if(reIndex !== -1) {
-        offsetIndex = reIndex; 
-      } else {
-        console.log("WARNING - Unable to find 'term'!");
-        offsetIndex = 0; 
+    var node;
+    if(nodeObj.node) {
+      node = nodeObj.getNodeAndOffsetByNodePath(nodeObj, doc);
+      if(!node){
+        console.warn("Invalid node");
+        return 1;
       }
-    } else {
-      offsetIndex = parseInt(nodeObj.offset || 0);
+      if(node.getBoundingClientRect) { // it's not a text node (likely a image node)
+        var perc = pageDiv.m.dimensions.percentageThroughOfNode(node);
+        return percentToPageNumber(perc);
+      }
+      // it's a textnode
+    } else if(nodeObj.term) {
+      node = nodeObj.getNodeAndOffsetByTerm(nodeObj, doc);
+      if(!node) {
+        console.warn("Invalid node");
+        return 1;
+      }
     }
-    var range = doc.createRange();
-    range.setStart(node, offsetIndex);
-    range.setEnd(node, offsetIndex + 1);
-    var percent = pageDiv.m.dimensions.percentageThroughOfNode(range);
 
-    return percentToPageNumber(percent);
+    var offset = parseInt(nodeObj.offset || 0);
+    console.log("offset: "+offset);
+    var range = doc.createRange();
+    range.setStart(node, offset);
+    range.setEnd(node, offset + 1);
+    console.log("range: "+range);
+    var percent = pageDiv.m.dimensions.percentageThroughOfNode(range);
+    console.log("percent: "+percent);
+    var page = percentToPageNumber(percent);
+    console.log("page: "+page);
+    console.log("document.body dimensions: "+doc.body.scrollWidth+" x "+doc.body.scrollHeight);
+    return page;
   }
 
   function pageForXPath(xpath, pageDiv) {
