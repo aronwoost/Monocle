@@ -345,8 +345,9 @@ Monocle.Component = function (book, id, index, chapters, source) {
       if(node.getBoundingClientRect) { // it's not a text node (likely a image node)
         var perc = pageDiv.m.dimensions.percentageThroughOfNode(node);
         return percentToPageNumber(perc);
+      } else {
+        // it's a textnode, all good
       }
-      // it's a textnode
     } else if(nodeObj.term) {
       node = nodeObj.getNodeAndOffsetByTerm(nodeObj, doc);
       if(!node) {
