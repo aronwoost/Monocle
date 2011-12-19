@@ -357,16 +357,11 @@ Monocle.Component = function (book, id, index, chapters, source) {
     }
 
     var offset = parseInt(nodeObj.offset || 0);
-    console.log("offset: "+offset);
     var range = doc.createRange();
     range.setStart(node, offset);
     range.setEnd(node, offset + 1);
-    console.log("range: "+range);
     var percent = pageDiv.m.dimensions.percentageThroughOfNode(range);
-    console.log("percent: "+percent);
     var page = percentToPageNumber(percent);
-    console.log("page: "+page);
-    console.log("document.body dimensions: "+doc.body.scrollWidth+" x "+doc.body.scrollHeight);
     return page;
   }
 
