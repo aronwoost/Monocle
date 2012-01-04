@@ -57,6 +57,33 @@ Monocle.Styles = {
     }
     s.MozTransform = s.OTransform = s.transform = "translateY("+y+")";
     return y;
+  },
+
+
+  getX: function (elem) {
+    var currStyle = document.defaultView.getComputedStyle(elem, null);
+    var re = /matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*([^,]+),[^\)]+\)/;
+    var props = Monocle.Browser.css.toDOMProps('transform');
+    var matrix = null;
+    while (props.length && !matrix) {
+      matrix = currStyle[props.shift()];
+    }
+    return parseInt(matrix.match(re)[1]);
+  },
+
+
+  transitionFor: function (elem, prop, duration, timing, delay) {
+    var tProps = Monocle.Browser.css.toDOMProps('transition');
+    var pProps = Monocle.Browser.css.toCSSProps(prop);
+    timing = timing || "linear";
+    delay = (delay || 0)+"ms";
+    for (var i = 0, ii = tProps.length; i < ii; ++i) {
+      var t = "none";
+      if (duration) {
+        t = [pProps[i], duration+"ms", timing, delay].join(" ");
+      }
+      elem.style[tProps[i]] = t;
+    }
   }
 
 }

@@ -49,8 +49,8 @@ Monocle.Book = function (dataSource) {
   //  - selector: the first node at this CSS selector within the component
   //
   // The locus object can also specify a componentId. If it is not provided
-  // (or it is invalid), we default to the currently active component, and
-  // if that doesn't exist, we default to the very first component.
+  // we default to the currently active component, and if that doesn't exist,
+  // we default to the very first component.
   //
   // The locus result will be an object with the following properties:
   //
@@ -393,6 +393,15 @@ Monocle.Book = function (dataSource) {
   }
 
 
+  function isValidLocus(locus) {
+    if (!locus) { return false; }
+    if (locus.componentId && !componentIdMatching(locus.componentId)) {
+      return false;
+    }
+    return true;
+  }
+
+
   function componentIdMatching(str) {
     return p.componentIds.indexOf(str) >= 0 ? str : null;
   }
@@ -405,6 +414,7 @@ Monocle.Book = function (dataSource) {
   API.setOrLoadPageAt = setOrLoadPageAt;
   API.chaptersForComponent = chaptersForComponent;
   API.locusOfChapter = locusOfChapter;
+  API.isValidLocus = isValidLocus;
 
   initialize();
 
