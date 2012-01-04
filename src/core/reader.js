@@ -769,6 +769,8 @@ Monocle.Reader.DEFAULT_STYLE_RULES = [
     "border: none !important;"+
     "padding: 0 !important;"+
     "-webkit-text-size-adjust: none;" +
+    "width: 100%;" +
+    "position: absolute;" +
   "}",
   "html#RS\\:monocle body * {" +
     "max-width: 100% !important;" +
