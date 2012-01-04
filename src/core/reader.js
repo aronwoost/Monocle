@@ -778,17 +778,7 @@ Monocle.Reader.DEFAULT_STYLE_RULES = [
   "html#RS\\:monocle img, html#RS\\:monocle video, html#RS\\:monocle object {" +
     "max-height: 95% !important;" +
     "height: auto !important;" +
-  "}",
-  // QUICKFIX make Packt books not break the CSS3 columns
-  "html#RS\\:monocle pre {" +
-    "white-space: pre-wrap;" + /* css-3 */
-    "white-space: -moz-pre-wrap !important;" + /* Mozilla, since 1999 */
-    "white-space: -pre-wrap;" + /* Opera 4-6 */
-    "white-space: -o-pre-wrap;" + /* Opera 7 */
-    "word-wrap: break-word;" + /* Internet Explorer 5.5+ */
-    "margin: 0 !important;" + 
   "}"
-
 ]
 
 Monocle.pieceLoaded('core/reader');
