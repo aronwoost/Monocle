@@ -1,11 +1,9 @@
 Monocle.Flippers.Slider = function (reader) {
-  if (Monocle.Flippers == this) {
-    return new Monocle.Flippers.Slider(reader);
-  }
 
   var API = { constructor: Monocle.Flippers.Slider }
   var k = API.constants = API.constructor;
   var p = API.properties = {
+    reader: reader,
     pageCount: 2,
     activeIndex: 1,
     turnData: {}
@@ -13,7 +11,6 @@ Monocle.Flippers.Slider = function (reader) {
 
 
   function initialize() {
-    p.reader = reader;
     p.reader.listen("monocle:componentchanging", showWaitControl);
   }
 
@@ -43,21 +40,13 @@ Monocle.Flippers.Slider = function (reader) {
         console.warn("Invalid panel class.")
       }
     }
-    var q = function (action, panel, x) {
-      var dir = panel.properties.direction;
-      if (action == "lift") {
-        lift(dir, x);
-      } else if (action == "release") {
-        release(dir, x);
-      }
-    }
     p.panels = new panelClass(
       API,
       {
-        'start': function (panel, x) { q('lift', panel, x); },
-        'move': function (panel, x) { turning(panel.properties.direction, x); },
-        'end': function (panel, x) { q('release', panel, x); },
-        'cancel': function (panel, x) { q('release', panel, x); }
+        'start': lift,
+        'move': turning,
+        'end': release,
+        'cancel': release
       }
     );
   }
@@ -67,24 +56,6 @@ Monocle.Flippers.Slider = function (reader) {
   // to be able to select or otherwise interact with text.
   function interactiveMode(bState) {
     p.reader.dispatchEvent('monocle:interactive:'+(bState ? 'on' : 'off'));
-    if (!Monocle.Browser.env.selectIgnoresZOrder) { return; }
-    if (p.interactive = bState) {
-      if (p.activeIndex != 0) {
-        var place = getPlace();
-        if (place) {
-          setPage(
-            p.reader.dom.find('page', 0),
-            place.getLocus(),
-            function () {
-              flipPages();
-              prepareNextPage();
-            }
-          );
-        } else {
-          flipPages();
-        }
-      }
-    }
   }
 
 
@@ -142,6 +113,8 @@ function moveToWithTransition(dirObj) {
 
   function lift(dir, boxPointX) {
     if (p.turnData.lifting || p.turnData.releasing) { return; }
+
+    p.reader.selection.deselect();
 
     p.turnData.points = {
       start: boxPointX,
@@ -506,5 +479,3 @@ Monocle.Flippers.Slider.DEFAULT_PANELS_CLASS = Monocle.Panels.TwoPane;
 Monocle.Flippers.Slider.FORWARDS = 1;
 Monocle.Flippers.Slider.BACKWARDS = -1;
 Monocle.Flippers.Slider.FOLLOW_DURATION = 100;
-
-Monocle.pieceLoaded('flippers/slider');

@@ -10,7 +10,6 @@
  *
  */
 Monocle.Book = function (dataSource) {
-  if (Monocle == this) { return new Monocle.Book(dataSource); }
 
   var API = { constructor: Monocle.Book }
   var k = API.constants = API.constructor;
@@ -422,28 +421,9 @@ Monocle.Book = function (dataSource) {
 }
 
 
-// A shortcut for creating a book from an array of nodes.
-//
-// You could use this as follows, for eg:
-//
-//  Monocle.Book.fromNodes([document.getElementById('content')]);
+// Legacy function. Deprecated.
 //
 Monocle.Book.fromNodes = function (nodes) {
-  var bookData = {
-    getComponents: function () {
-      return ['anonymous'];
-    },
-    getContents: function () {
-      return [];
-    },
-    getComponent: function (n) {
-      return { 'nodes': nodes };
-    },
-    getMetaData: function (key) {
-    }
-  }
-
-  return new Monocle.Book(bookData);
+  console.deprecation("Book.fromNodes() will soon be removed.");
+  return new Monocle.Book(Monocle.bookDataFromNodes(nodes));
 }
-
-Monocle.pieceLoaded('core/book');

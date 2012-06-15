@@ -1,40 +1,59 @@
-Monocle.Controls.Stencil = function (reader) {
-  if (Monocle.Controls == this) { return new this.Stencil(reader); }
+Monocle.Controls.Stencil = function (reader, behaviorClasses) {
 
   var API = { constructor: Monocle.Controls.Stencil }
   var k = API.constants = API.constructor;
   var p = API.properties = {
     reader: reader,
-    activeComponent: null,
+    behaviors: [],
     components: {},
-    cutouts: []
+    masks: []
   }
 
 
   // Create the stencil container and listen for draw/update events.
   //
   function createControlElements(holder) {
+    behaviorClasses = behaviorClasses || k.DEFAULT_BEHAVIORS;
+    for (var i = 0, ii = behaviorClasses.length; i < ii; ++i) {
+      addBehavior(behaviorClasses[i]);
+    }
     p.container = holder.dom.make('div', k.CLS.container);
-    p.reader.listen('monocle:turn', draw);
+    p.reader.listen('monocle:turn', update);
     p.reader.listen('monocle:stylesheetchange', update);
     p.reader.listen('monocle:resize', update);
-    p.reader.listen('monocle:componentchange', function (evt) {
-      Monocle.defer(update);
-    });
-    p.reader.listen('monocle:interactive:on', disable);
-    p.reader.listen('monocle:interactive:off', enable);
-    p.baseURL = getBaseURL();
+    update();
     return p.container;
   }
 
 
+  // Pass this method an object that responds to 'findElements(doc)' with
+  // an array of DOM elements for that document, and to 'fitMask(elem, mask)'.
+  //
+  // After you have added all your behaviors this way, you would typically
+  // call update() to make them take effect immediately.
+  //
+  function addBehavior(bhvrClass) {
+    var bhvr = new bhvrClass(API);
+    if (typeof bhvr.findElements != 'function') {
+      console.warn('Missing "findElements" method for behavior: %o', bhvr);
+    }
+    if (typeof bhvr.fitMask != 'function') {
+      console.warn('Missing "fitMask" method for behavior: %o', bhvr);
+    }
+    p.behaviors.push(bhvr);
+  }
+
+
   // Resets any pre-calculated rectangles for the active component,
-  // recalculates them, and forces cutouts to be "drawn" (moved into the new
+  // recalculates them, and forces masks to be "drawn" (moved into the new
   // rectangular locations).
   //
   function update() {
-    var pageDiv = p.reader.visiblePages()[0];
+    var visPages = p.reader.visiblePages();
+    if (!visPages || !visPages.length) { return; }
+    var pageDiv = visPages[0];
     var cmptId = pageComponentId(pageDiv);
+    if (!cmptId) { return; }
     p.components[cmptId] = null;
     calculateRectangles(pageDiv);
     draw();
@@ -42,7 +61,7 @@ Monocle.Controls.Stencil = function (reader) {
 
 
   // Aligns the stencil container to the shape of the page, then moves the
-  // cutout links to sit above any currently visible rectangles.
+  // masks to sit above any currently visible rectangles.
   //
   function draw() {
     var pageDiv = p.reader.visiblePages()[0];
@@ -54,19 +73,17 @@ Monocle.Controls.Stencil = function (reader) {
     // Position the container.
     alignToComponent(pageDiv);
 
-    // Layout the cutouts.
-    var placed = 0;
+    // Clear old masks.
+    while (p.container.childNodes.length) {
+      p.container.removeChild(p.container.lastChild);
+    }
+
+    // Layout the masks.
     if (!p.disabled) {
       var rects = p.components[cmptId];
       if (rects && rects.length) {
-        placed = layoutRectangles(pageDiv, rects);
+        layoutRectangles(pageDiv, rects);
       }
-    }
-
-    // Hide remaining rects.
-    while (placed < p.cutouts.length) {
-      hideCutout(placed);
-      placed += 1;
     }
   }
 
@@ -76,31 +93,26 @@ Monocle.Controls.Stencil = function (reader) {
   //
   function calculateRectangles(pageDiv) {
     var cmptId = pageComponentId(pageDiv);
-    p.activeComponent = cmptId;
+    if (!p.components[cmptId]) {
+      p.components[cmptId] = [];
+    } else {
+      return;
+    }
+
     var doc = pageDiv.m.activeFrame.contentDocument;
     var offset = getOffset(pageDiv);
-    // BROWSERHACK: Gecko doesn't subtract translations from GBCR values.
-    if (Monocle.Browser.is.Gecko) {
-      offset.l = 0;
-    }
-    var calcRects = false;
-    if (!p.components[cmptId]) {
-      p.components[cmptId] = []
-      calcRects = true;
-    }
 
-    var iElems = doc.getElementsByTagName('a');
-    for (var i = 0; i < iElems.length; ++i) {
-      if (iElems[i].href) {
-        var href = deconstructHref(iElems[i].href);
-        fixLink(iElems[i], href, clickHandler);
-
-        if (calcRects && iElems[i].getClientRects) {
-          var r = iElems[i].getClientRects();
+    for (var b = 0, bb = p.behaviors.length; b < bb; ++b) {
+      var bhvr = p.behaviors[b];
+      var elems = bhvr.findElements(doc);
+      for (var i = 0; i < elems.length; ++i) {
+        var elem = elems[i];
+        if (elem.getClientRects) {
+          var r = elem.getClientRects();
           for (var j = 0; j < r.length; j++) {
             p.components[cmptId].push({
-              link: iElems[i],
-              href: href,
+              element: elem,
+              behavior: bhvr,
               left: Math.ceil(r[j].left + offset.l),
               top: Math.ceil(r[j].top),
               width: Math.floor(r[j].width),
@@ -112,16 +124,6 @@ Monocle.Controls.Stencil = function (reader) {
     }
 
     return p.components[cmptId];
-  }
-
-
-  // Find the offset position in pixels from the left of the current page.
-  //
-  function getOffset(pageDiv) {
-    return {
-      l: pageDiv.m.offset || 0,
-      w: pageDiv.m.dimensions.properties.width
-    };
   }
 
 
@@ -137,55 +139,40 @@ Monocle.Controls.Stencil = function (reader) {
     }
 
     for (i = 0; i < visRects.length; ++i) {
-      if (!p.cutouts[i]) {
-        p.cutouts[i] = createCutout();
-      }
-      var link = p.cutouts[i];
-      link.dom.setStyles({
+      var r = visRects[i];
+      var cr = {
+        left: r.left - offset.l,
+        top: r.top,
+        width: r.width,
+        height: r.height
+      };
+      var mask = createMask(r.element, r.behavior);
+      mask.dom.setStyles({
         display: 'block',
-        left: (visRects[i].left - offset.l)+"px",
-        top: visRects[i].top+"px",
-        width: visRects[i].width+"px",
-        height: visRects[i].height+"px"
+        left: cr.left+"px",
+        top: cr.top+"px",
+        width: cr.width+"px",
+        height: cr.height+"px"
       });
-      link.relatedLink = visRects[i].link;
-      fixLink(link, visRects[i].href, cutoutClick);
+      mask.stencilRect = cr;
     }
-
-    return i;
   }
 
 
-  // Set the link (either the original <a> tag or a cutout) to listen for
-  // clicks and go to the corresponding component (or open the external URL
-  // in a new window).
+  // Find the offset position in pixels from the left of the current page.
   //
-  // NB: if the original link already has a click handler on it (eg, if the
-  // content is scripted), that click handler can:
-  //
-  // * stopPropagation if it is defined first
-  // * run Monocle.Events.deafen(link, 'click', link.stencilClickHandler)
-  //
-  // in order to prevent the default stencil click behaviour when in
-  // interactive mode.
-  //
-  function fixLink(link, hrefObject, handler) {
-    link.setAttribute('target', '_blank');
-    link.deconstructedHref = hrefObject;
-    if (hrefObject.external) {
-      link.href = hrefObject.external;
-    } else if (link.relatedLink) {
-      link.removeAttribute('href');
-    }
-    if (link.stencilClickHandler) { return; }
-    link.stencilClickHandler = handler;
-    Monocle.Events.listen(link, 'click', link.stencilClickHandler);
+  function getOffset(pageDiv) {
+    return {
+      l: pageDiv.m.offset || 0,
+      w: pageDiv.m.dimensions.properties.width
+    };
   }
 
 
-  function createCutout() {
-    var cutout =  p.container.dom.append('a', k.CLS.cutout);
-    return cutout;
+  // Is this area presently on the screen?
+  //
+  function rectVisible(rect, l, r) {
+    return rect.left >= l && rect.left < r;
   }
 
 
@@ -194,6 +181,7 @@ Monocle.Controls.Stencil = function (reader) {
   //
   function pageComponentId(pageDiv) {
     pageDiv = pageDiv || p.reader.visiblePages()[0];
+    if (!pageDiv.m.activeFrame.m.component) { return; }
     return pageDiv.m.activeFrame.m.component.properties.id;
   }
 
@@ -203,125 +191,33 @@ Monocle.Controls.Stencil = function (reader) {
   function alignToComponent(pageDiv) {
     cmpt = pageDiv.m.activeFrame.parentNode;
     p.container.dom.setStyles({
-      top: cmpt.offsetTop + "px",
-      left: cmpt.offsetLeft + "px"
+      left: cmpt.offsetLeft+"px",
+      top: cmpt.offsetTop+"px"
     });
   }
 
 
-  function hideCutout(index) {
-    p.cutouts[index].dom.setStyles({ display: 'none' });
+  function createMask(element, bhvr) {
+    var mask = p.container.dom.append(bhvr.maskTagName || 'div', k.CLS.mask);
+    Monocle.Events.listenForContact(mask, {
+      start: function () { p.reader.dispatchEvent('monocle:magic:halt'); },
+      end: function () { p.reader.dispatchEvent('monocle:magic:init'); }
+    });
+    bhvr.fitMask(element, mask);
+    return mask;
   }
 
 
-  function rectVisible(rect, l, r) {
-    return rect.left >= l && rect.left < r;
-  }
-
-
-  // Make the active cutouts visible (by giving them a class -- override style
-  // in monocle.css).
+  // Make the active masks visible (by giving them a class -- override style
+  // in monoctrl.css).
   //
   function toggleHighlights() {
-    var cls = k.CLS.highlights
+    var cls = k.CLS.highlights;
     if (p.container.dom.hasClass(cls)) {
       p.container.dom.removeClass(cls);
     } else {
       p.container.dom.addClass(cls);
     }
-  }
-
-
-  // Returns an object with either:
-  //
-  // - an 'external' property -- an absolute URL with a protocol,
-  // host & etc, which should be treated as an external resource (eg,
-  // open in new window)
-  //
-  //   OR
-  //
-  // - a 'componentId' property -- a relative URL with no forward slash,
-  // which must be treated as a componentId; and
-  // - a 'hash' property -- which may be an anchor in the form "#foo", or
-  // may be blank.
-  //
-  // Expects an absolute URL to be passed in. A weird but useful property
-  // of <a> tags is that while link.getAttribute('href') will return the
-  // actual string value of the attribute (eg, 'foo.html'), link.href will
-  // return the absolute URL (eg, 'http://example.com/monocles/foo.html').
-  //
-  function deconstructHref(url) {
-    var result = {};
-    var re = new RegExp("^"+p.baseURL+"([^#]*)(#.*)?$");
-    var match = url.match(re);
-    if (match) {
-      result.componentId = match[1] || pageComponentId();
-      result.hash = match[2] || '';
-    } else {
-      result.external = url;
-    }
-    return result;
-  }
-
-
-  // Returns the base URL for the reader's host page, which can be used
-  // to deconstruct the hrefs of individual links within components.
-  //
-  function getBaseURL() {
-    var a = document.createElement('a');
-    a.setAttribute('href', 'x');
-    return a.href.replace(/x$/,'')
-  }
-
-
-  // Invoked when a cutout is clicked -- opens external URL in new window,
-  // or moves to an internal component.
-  //
-  function cutoutClick(evt) {
-    var link = evt.currentTarget;
-    olink = link.relatedLink;
-    Monocle.Events.listen(olink, 'click', clickHandler);
-    var mimicEvt = document.createEvent('MouseEvents');
-    mimicEvt.initMouseEvent(
-      'click',
-      true,
-      true,
-      document.defaultView,
-      evt.detail,
-      evt.screenX,
-      evt.screenY,
-      evt.screenX,
-      evt.screenY,
-      evt.ctrlKey,
-      evt.altKey,
-      evt.shiftKey,
-      evt.metaKey,
-      evt.which,
-      null
-    );
-    try {
-      olink.dispatchEvent(mimicEvt);
-    } finally {
-      Monocle.Events.deafen(olink, 'click', clickHandler);
-    }
-  }
-
-
-  function clickHandler(evt) {
-    if (evt.defaultPrevented) { // NB: unfortunately not supported in Gecko.
-      return;
-    }
-    var link = evt.currentTarget;
-    var href = link.deconstructedHref;
-    if (!href) {
-      return;
-    }
-    if (href.external) {
-      return;
-    }
-    var cmptId = href.componentId + href.hash;
-    p.reader.skipToChapter(cmptId);
-    evt.preventDefault();
   }
 
 
@@ -337,7 +233,24 @@ Monocle.Controls.Stencil = function (reader) {
   }
 
 
+  function filterElement(elem, behavior) {
+    if (typeof behavior.filterElement == 'function') {
+      return behavior.filterElement(elem);
+    }
+    return elem;
+  }
+
+
+  function maskAssigned(elem, mask, behavior) {
+    if (typeof behavior.maskAssigned == 'function') {
+      return behavior.maskAssigned(elem, mask);
+    }
+    return false;
+  }
+
+
   API.createControlElements = createControlElements;
+  API.addBehavior = addBehavior;
   API.draw = draw;
   API.update = update;
   API.toggleHighlights = toggleHighlights;
@@ -348,9 +261,80 @@ Monocle.Controls.Stencil = function (reader) {
 
 Monocle.Controls.Stencil.CLS = {
   container: 'controls_stencil_container',
-  cutout: 'controls_stencil_cutout',
+  mask: 'controls_stencil_mask',
   highlights: 'controls_stencil_highlighted'
 }
 
+Monocle.Controls.Stencil.DEFAULT_BEHAVIORS = [Monocle.Controls.Stencil.Links];
 
-Monocle.pieceLoaded('controls/stencil');
+
+Monocle.Controls.Stencil.Links = function (stencil) {
+  var API = { constructor: Monocle.Controls.Stencil.Links }
+
+  // Optionally specify the HTML tagname of the mask.
+  API.maskTagName = 'a';
+
+  // Returns an array of all the elements in the given doc that should
+  // be covered with a stencil mask for interactivity.
+  //
+  // (Hint: doc.querySelectorAll() is your friend.)
+  //
+  API.findElements = function (doc) {
+    return doc.querySelectorAll('a[href]');
+  }
+
+
+  // Return an element. It should usually be a child of the container element,
+  // with a className of the given maskClass. You set up the interactivity of
+  // the mask element here.
+  //
+  API.fitMask = function (link, mask) {
+    var hrefObject = deconstructHref(link);
+    if (hrefObject.internal) {
+      mask.setAttribute('href', 'javascript:"Skip to chapter"');
+      Monocle.Events.listen(mask, 'click', function (evt) {
+        stencil.properties.reader.skipToChapter(hrefObject.internal);
+        evt.preventDefault();
+      });
+    } else {
+      mask.setAttribute('href', hrefObject.external);
+      mask.setAttribute('target', '_blank');
+      link.setAttribute('target', '_blank'); // For good measure.
+    }
+  }
+
+
+  // Returns an object with either:
+  //
+  // - an 'external' property -- an absolute URL with a protocol,
+  // host & etc, which should be treated as an external resource (eg,
+  // open in new window)
+  //
+  //   OR
+  //
+  // - an 'internal' property -- a relative URL (with optional hash anchor),
+  //  that is treated as a link to component in the book
+  //
+  // A weird but useful property of <a> tags is that while
+  // link.getAttribute('href') will return the actual string value of the
+  // attribute (eg, 'foo.html'), link.href will return the absolute URL (eg,
+  // 'http://example.com/monocles/foo.html').
+  //
+  function deconstructHref(elem) {
+    var url = elem.href;
+    if (!elem.getAttribute('target')) {
+      var m = url.match(/([^#]*)(#.*)?$/);
+      var path = m[1];
+      var anchor = m[2] || '';
+      var cmpts = stencil.properties.reader.getBook().properties.componentIds;
+      for (var i = 0, ii = cmpts.length; i < ii; ++i) {
+        if (path.substr(0 - cmpts[i].length) == cmpts[i]) {
+          return { internal: cmpts[i] + anchor };
+        }
+      }
+    }
+    return { external: url };
+  }
+
+  return API;
+}

@@ -1,3 +1,6 @@
+// A class that tests the browser environment for required capabilities and
+// known bugs (for which we have workarounds).
+//
 Monocle.Env = function () {
 
   var API = { constructor: Monocle.Env }
@@ -36,7 +39,6 @@ Monocle.Env = function () {
   // Each test should call this to say "I'm finished, run the next test."
   //
   function result(val) {
-    //console.log("["+activeTestName+"] "+val);
     API[activeTestName] = val;
     if (p.resultCallback) { p.resultCallback(activeTestName, val); }
     runNextTest();
@@ -74,7 +76,6 @@ Monocle.Env = function () {
   function testNotYetImplemented(rslt) {
     return function () { result(rslt); }
   }
-
 
 
   // Loads (or reloads) a hidden iframe so that we can test browser features.
@@ -147,12 +148,16 @@ Monocle.Env = function () {
           "width:100%",
           "-webkit-column-width:"+testFrameSize+"px",
           "-webkit-column-gap:0",
+          "-webkit-column-fill:auto",
           "-moz-column-width:"+testFrameSize+"px",
           "-moz-column-gap:0",
+          "-moz-column-fill:auto",
           "-o-column-width:"+testFrameSize+"px",
           "-o-column-gap:0",
+          "-o-column-fill:auto",
           "column-width:"+testFrameSize+"px",
-          "column-gap:0"
+          "column-gap:0",
+          "column-fill:auto"
         ].join(";"));
         if (bd.scrollHeight > testFrameSize) {
           bd.style.cssText += ["min-width:200%", "overflow:hidden"].join(";");
@@ -235,6 +240,21 @@ Monocle.Env = function () {
     }],
 
 
+    // Commonly-used browser functionality
+    ["supportsOfflineCache", function () {
+      result(typeof window.applicationCache != 'undefined');
+    }],
+
+    ["supportsLocalStorage", function () {
+      // NB: Some duplicitous early Android browsers claim to have
+      // localStorage, but calls to getItem() fail.
+      result(
+        typeof window.localStorage != "undefined" &&
+        typeof window.localStorage.getItem == "function"
+      )
+    }],
+
+
     // CHECK OUT OUR CONTEXT
 
     // Does the device have a MobileSafari-style touch interface?
@@ -258,14 +278,6 @@ Monocle.Env = function () {
     // See test/bugs/ios-frame-touch-bug for details.
     //
     ["brokenIframeTouchModel", function () {
-      result(Monocle.Browser.iOSVersionBelow("4.2"));
-    }],
-
-    // In early versions of iOS (up to 4.1), MobileSafari would send text-select
-    // activity to the first iframe, even if that iframe is overlapped by a
-    // "higher" iframe.
-    //
-    ["selectIgnoresZOrder", function () {
       result(Monocle.Browser.iOSVersionBelow("4.2"));
     }],
 
@@ -404,8 +416,9 @@ Monocle.Env = function () {
     return (
       API.supportsW3CEvents &&
       API.supportsCustomEvents &&
-      // API.supportsColumns &&     // This is coming in 3.0!
-      API.supportsTransform
+      API.supportsColumns &&
+      API.supportsTransform &&
+      !API.brokenIframeTouchModel
     );
   }
 
@@ -415,7 +428,3 @@ Monocle.Env = function () {
 
   return API;
 }
-
-
-
-Monocle.pieceLoaded('compat/env');

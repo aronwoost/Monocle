@@ -126,10 +126,11 @@ Monocle.Component = function (book, id, index, chapters, source) {
   //
   function loadFrameFromJavaScript(src, frame, callback) {
     src = "javascript:'"+src+"';";
-    frame.onload = function () {
-      frame.onload = null;
+    var fn = function () {
+      Monocle.Events.deafen(iframe, 'DOMContentLoaded', fn);
       Monocle.defer(callback);
     }
+    Monocle.Events.listen(iframe, 'DOMContentLoaded', fn);
     frame.src = src;
   }
 
@@ -229,11 +230,6 @@ Monocle.Component = function (book, id, index, chapters, source) {
   // and measure its contents.
   //
   function setupFrame(pageDiv, frame, callback) {
-    // iOS touch events on iframes are busted. See comments in
-    // events.js for an explanation of this hack.
-    //
-    Monocle.Events.listenOnIframe(frame);
-
     var doc = frame.contentDocument;
     var evtData = { 'page': pageDiv, 'document': doc, 'component': API };
 
@@ -416,5 +412,3 @@ Monocle.Component = function (book, id, index, chapters, source) {
 
   return API;
 }
-
-Monocle.pieceLoaded('core/component');

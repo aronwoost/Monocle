@@ -95,6 +95,7 @@ Monocle.Styles = {
 //
 Monocle.Styles.container = {
   "position": "absolute",
+  "overflow": "hidden",
   "top": "0",
   "left": "0",
   "bottom": "0",
@@ -152,7 +153,3 @@ Monocle.Styles.overlay = {
   "height": "100%",
   "z-index": "1000"
 }
-
-
-
-Monocle.pieceLoaded('core/styles');
